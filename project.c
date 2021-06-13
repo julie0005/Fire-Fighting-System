@@ -20,10 +20,10 @@
 #define LOW 0
 #define HIGH 1
 #define PWM 2
-#define PIN 20      //button1
-#define PIN2 21      //button2
-#define POUT 17      //led
-#define POUT1 18   //buzzer
+#define PIN 20		//button1
+#define PIN2 21		//button2
+#define POUT 17		//led
+#define POUT1 18	//buzzer
 
 #define VALUE_MAX 256
 
@@ -39,10 +39,9 @@ int serv_sock2, clnt_sock2=-1;
 struct sockaddr_in serv_addr, clnt_addr, serv_addr2, clnt_addr2;
 socklen_t clnt_addr_size, clnt_addr_size2;
 int isFire=0;
-//0 : nothing happens, 1 : fire breaks out.
 int button_val=0;
-//1~ : which buttons is pressed.
 int prev_state=0;
+int so_num=2;
 
 static int GPIOExport(int pin){
     #define BUFFER_MAX 3
@@ -119,19 +118,19 @@ static int GPIOWrite(int pin, int value){
     static const char s_values_str[] = "01";
     char path[VALUE_MAX2];
     int fd;
-   
+	
     snprintf(path, VALUE_MAX2, "/sys/class/gpio/gpio%d/value", pin);
     fd = open(path, O_WRONLY);
     if(-1==fd){
-   fprintf(stderr, "Failed to open gpio value for writing!\n");
-   return(-1);
+	fprintf(stderr, "Failed to open gpio value for writing!\n");
+	return(-1);
     }
     if(1 != write(fd, &s_values_str[LOW == value ? 0:1], 1)){
-   fprintf(stderr, "failed to write value!\n");
-   return(-1);
-   
-   close(fd);
-   return(0);
+	fprintf(stderr, "failed to write value!\n");
+	return(-1);
+	
+	close(fd);
+	return(0);
     }
 }
 
@@ -200,7 +199,6 @@ static int PWMWritePeriod(int pwmnum, int value){
    char path[VALUE_MAX];
    int fd, byte;
    
-   //
    snprintf(path, VALUE_MAX, "/sys/class/pwm/pwmchip0/pwm%d/period", pwmnum);
    fd = open(path, O_WRONLY);
    if(-1 == fd){
@@ -290,35 +288,6 @@ int readadc(int fd, uint8_t channel) {
     return ((rx[1] << 8) & 0x300) | (rx[2] & 0xFF);
 }
 
-
-/*
-void *buzzer_thd(){
-    while(1){
-   if(press > 20){
-       
-       printf("buzzer_press: %d\n",press);
-       PWMExport(0);
-       PWMWritePeriod(0, 2000000);
-       PWMWriteDutyCycle(0, 0);
-       PWMEnable(0);
-      
-       while(1){
-      PWMWriteDutyCycle(0, 1000000);
-      usleep(500000);
-      PWMWriteDutyCycle(0,0);
-      usleep(500000);
-       }
-   }
-   if(press <= 20){
-       PWMExport(0);
-       PWMWritePeriod(0, 2000000);
-       PWMWriteDutyCycle(0, 0);
-       PWMEnable(0);
-   }
-    }
-    exit(0);
-}
-*/
 void *press_thd(){
     
     //Enable GPIO pins
@@ -342,7 +311,7 @@ void *press_thd(){
         exit(0);
     }
     if(prepare(fd)==-1){
-   printf("prepare error-line 331\n");
+	printf("prepare error-line 331\n");
         exit(0);
     }
     
@@ -350,44 +319,44 @@ void *press_thd(){
     PWMWritePeriod(0, 2000000);
     PWMWriteDutyCycle(0, 0);
     PWMEnable(0);
-       
+	    
     while(1){
-   if(!isFire){
-       GPIOWrite(POUT, 0);
-       PWMWriteDutyCycle(0,0);
-       usleep(50000);
-       printf("turned off when it's gone\n");
-       break;
-   }
-   int press;
+	if(!isFire){
+	    GPIOWrite(POUT, 0);
+	    PWMWriteDutyCycle(0,0);
+	    usleep(50000);
+	    printf("turned off when it's gone\n");
+	    break;
+	}
+	int press;
         press=readadc(fd,0);
         printf("%d\n", press);
-   if(press > 20){ //pressure detected
-       printf("pressure detected\n");
-       
-       //led on
-       GPIOWrite(POUT, 1);
-       
-       //buzzer on
-       PWMWriteDutyCycle(0, 10000);
-       usleep(50000);
-       printf("1\n");
-       
-       
-   }
-   if(press <= 20){ //pressure undetected
-       printf("pressure undetected\n");
-       
-       //led off
-       GPIOWrite(POUT, 0);
-       
-       //buzzer off
-       PWMWriteDutyCycle(0,0);
-       usleep(50000);
-       printf("0\n");
-       
-       
-   }
+	if(press > 20){ //pressure detected
+	    printf("pressure detected\n");
+	    
+	    //led on
+	    GPIOWrite(POUT, 1);
+	    
+	    //buzzer on
+	    PWMWriteDutyCycle(0, 10000);
+	    usleep(50000);
+	    printf("1\n");
+	    
+	    
+	}
+	if(press <= 20){ //pressure undetected
+	    printf("pressure undetected\n");
+	    
+	    //led off
+	    GPIOWrite(POUT, 0);
+	    
+	    //buzzer off
+	    PWMWriteDutyCycle(0,0);
+	    usleep(50000);
+	    printf("0\n");
+	    
+	    
+	}
         usleep(500000);
     }
     close(fd);
@@ -396,37 +365,40 @@ void *press_thd(){
 }
 char msg[3]={0};
 
-void *button1_thd(void * arg){
-    int clnt_sock=*((int*)arg);
+typedef struct{
+    int clnt_sock;
+    int button_val;
+}bt_arg;
+
+pthread_mutex_t mutex_lock;
+
+void *button_thd(void * arg){
+    printf("button thread printed\n");
+    
     while(1){
-   if(!isFire) break;
-   if(GPIORead(PIN) == 1){
-       printf("button1 pushed\n");
-       //LCD print
-       msg[1] = 1 + '0';
-       write(clnt_sock,msg,sizeof(msg));
-   }
-   
-   usleep(100000);
+	printf("start thread : %d\n",((bt_arg*)arg)->button_val);
+	pthread_mutex_lock(&mutex_lock);
+	if(!isFire) {printf("escape button_thd %d\n",((bt_arg*)arg)->button_val); pthread_mutex_unlock(&mutex_lock); break; }
+	bt_arg bi;
+	bi=*((bt_arg*)arg);
+	printf("is this work????????????????????????????????????????????  isFire : %d\n",isFire);
+	int gpio=19+bi.button_val;
+	
+	printf("gpio : %d\nthread : %d\nGPIORead(gpio) : %d\n",gpio,bi.button_val,GPIORead(gpio));
+	if(GPIORead(gpio) == 1){
+	    
+	    printf("is this work????????????????????????????2222222222222222222??\n");
+	    printf("button%d pushed\n",bi.button_val);
+	    //LCD print
+	    msg[1] = bi.button_val + '0';
+	    write(bi.clnt_sock,msg,sizeof(msg));
+	}
+	usleep(100000);
+	pthread_mutex_unlock(&mutex_lock);
+	printf("end thread : %d\n",bi.button_val);
     }
     
 }
-
-void *button2_thd(void * arg){
-    int clnt_sock=*((int*)arg);
-    while(1){
-   if(!isFire) break;
-   if(GPIORead(PIN2) == 1){
-       printf("button2 pushed\n");
-       //LCD print
-       msg[1] = 2 + '0';
-       write(clnt_sock,msg,sizeof(msg));
-   }
-   usleep(100000);
-    }
-    
-}
-
 void error_handling(char *message){
    fputs(message, stderr);
    fputc('\n', stderr);
@@ -436,53 +408,52 @@ void error_handling(char *message){
 
 void * soc1_thread(void * arg){
     //07 pie
-    
-    int clnt_sock=*((int*)arg);
-     while(1){
-       printf("isFire is %d\n",isFire);
-       msg[0]=isFire+'0';
-       msg[1]=0+'0';
-
-       //which button is pressed?
-       if(isFire){
-      //buzzer on, led on
-      write(clnt_sock,msg,sizeof(msg));
-      printf("hi\n");
-      pthread_t p_thread[3];
-      int thr_id;
-      int status;
-      char p1[] = "pressure";
-      char p2[] = "button1";
-      char p3[] = "button2";
-      
-      thr_id = pthread_create(&p_thread[0], NULL, press_thd, (void *)p1);
-      if(thr_id < 0){
-        perror("thread create error: ");
-        exit(0);
-           }
-      thr_id = pthread_create(&p_thread[1], NULL, button1_thd, (void *)&clnt_sock);
-      if(thr_id < 0){
-        perror("thread create error: ");
-        exit(0);
-           }
-      thr_id = pthread_create(&p_thread[2], NULL, button2_thd, (void *)&clnt_sock);
-      if(thr_id < 0){
-        perror("thread create error: ");
-        exit(0);
-           }
-      write(clnt_sock,msg,sizeof(msg));
-      pthread_join(p_thread[0], (void **)&status);
-      pthread_join(p_thread[1], (void **)&status);
-      pthread_join(p_thread[2], (void **)&status);
-      
-       }
-       else if(isFire==0 && prev_state==1){
-      write(clnt_sock,msg,sizeof(msg));
-       }
-       
-     }   
-
-          
+    bt_arg bi[so_num+1];
+    int clnt=*((int*)arg);
+	  while(1){
+	    printf("isFire is %d\n",isFire);
+	    msg[0]=isFire+'0';
+	    msg[1]=0+'0';
+	    
+	    //which button is pressed?
+	    if(isFire){
+		//buzzer on, led on
+		printf(" msg before writttttttttttttttttttttttttttttttttteeeeeeeeeeeeeee : %s\n", msg);
+		write(clnt,msg,sizeof(msg));
+		
+		printf("hi\n");
+		pthread_t p_thread[so_num+1];
+		int thr_id;
+		int status;
+		char p1[] = "pressure";
+		
+		thr_id = pthread_create(&p_thread[0], NULL, press_thd, (void *)p1);
+		if(thr_id < 0){
+		  perror("thread create error: ");
+		  exit(0);
+	        }
+		for(int i=1; i<so_num+1; i++){
+		 printf("button thread %d in soc1_thread\n",i);
+		 bi[i-1].clnt_sock=clnt;
+		 bi[i-1].button_val=i;
+		 thr_id=pthread_create(&p_thread[i],NULL, button_thd, (void *)&bi[i-1]);
+		 if(thr_id<0){
+		     perror("thread create error: ");
+		     exit(0);
+		 }
+		}
+		write(clnt,msg,sizeof(msg));
+		for(int i=0; i<so_num+1; i++){
+		    
+		    pthread_join(p_thread[i], (void **)&status);
+		    printf("join waiting !! \n");
+		}
+		
+	    }
+	    else if(isFire==0 && prev_state==1){
+		write(clnt,msg,sizeof(msg));
+	    }
+	  }	
 }
 
 void * soc2_thread(void * arg){
@@ -491,32 +462,27 @@ void * soc2_thread(void * arg){
     int str_len;
     char msg[2];
     
-   while(1){
+	while(1){
 
-       str_len=read(clnt_sock,msg,sizeof(msg));
-       if(str_len==-1)
-      error_handling("read error\n");
-       
-       printf("Receive message from 22 : %s\n",msg);
-       printf("change to integer : %d\n",atoi(msg));
-       if(strlen(msg)>0 && atoi(msg)==1){
-      printf("isFire is changed\n");
-      prev_state=0;
-      isFire=1;
-      
-       }       
-       else if(strlen(msg)>0 && atoi(msg)==0){
-      /* if end button is pressed, isFire=0*/
-      printf("is Fire is Changed to 0!!!!!!!!!! PREV_STATE=1\n");
-      prev_state=1;
-      isFire=0;
-      
-       }
-       
-
-   }
-    
-    
+	    str_len=read(clnt_sock,msg,sizeof(msg));
+	    if(str_len==-1)
+		error_handling("read error\n");
+	    
+	    printf("Receive message from 22 : %s\n",msg);
+	    printf("change to integer : %d\n",atoi(msg));
+	    if(strlen(msg)>0 && atoi(msg)==1){
+		printf("isFire is changed\n");
+		prev_state=0;
+		isFire=1;
+		
+	    }	    
+	    else if(strlen(msg)>0 && atoi(msg)==0){
+		/* if end button is pressed, isFire=0*/
+		printf("is Fire is Changed to 0!!!!!!!!!! PREV_STATE=1\n");
+		prev_state=1;
+		isFire=0;
+	    }
+	}
 }
 
 int main(int argc, char *argv[]){
@@ -529,16 +495,8 @@ int main(int argc, char *argv[]){
    int p_id;
    
    char msg[2];
+   pthread_mutex_unlock(&mutex_lock);
    
-   /*
-   if(-1==GPIOExport(PIN) || -1 == GPIOExport(POUT))
-      return(1);
-      
-   if(-1==GPIODirection(PIN,IN)||-1==GPIODirection(POUT, OUT))
-      return(2);
-   if(-1==GPIOWrite(POUT, 1))
-      return(3);
-      */
    if(argc!=2){
       printf("Usage : %s <port>\n", argv[0]);
    }
@@ -552,37 +510,33 @@ int main(int argc, char *argv[]){
    
    if(bind(serv_sock, (struct sockaddr*) &serv_addr, sizeof(serv_addr))==-1)
       error_handling("bind()1 error");
-     
+	  
     if(listen(serv_sock, 5)==-1)
-     error_handling("listen() error");
+	  error_handling("listen() error");
     
     while(1){
       clnt_addr_size=sizeof(clnt_addr);
       clnt_sock=accept(serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
       if(clnt_sock==-1)
-    error_handling("accept() error");
-   
+	 error_handling("accept() error");
+	
       printf("%s\n",inet_ntoa(clnt_addr.sin_addr));
       if(strcmp(inet_ntoa(clnt_addr.sin_addr),"192.168.0.7")==0){
-     printf("192.168.0.7 is connected\n");
-     pthread_create(&sock_1,NULL,soc1_thread,(void *)&clnt_sock);
-     i++;   
+	  printf("192.168.0.7 is connected\n");
+	  pthread_create(&sock_1,NULL,soc1_thread,(void *)&clnt_sock);
+	  i++;	
       }
       else if(strcmp(inet_ntoa(clnt_addr.sin_addr),"192.168.0.22")==0){
-     printf("192.168.0.22 is connected\n");
-     pthread_create(&sock_2,NULL,soc2_thread,(void *)&clnt_sock);
-     i++;
+	  printf("192.168.0.22 is connected\n");
+	  pthread_create(&sock_2,NULL,soc2_thread,(void *)&clnt_sock);
+	  i++;
       }
       if(i>=2){
-    break;
+	 break;
        }
     }
     
-    
-    
-    
     pthread_join(sock_1,NULL);
     pthread_join(sock_2,NULL);    
-    return 0;
-    
+  
 }
