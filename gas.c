@@ -313,13 +313,7 @@ void *print(void *argv){
             write(sock, msg, sizeof(msg));
             chec=1;
             printf("Gas and Fire is both detected, send signal to 23 pie.\n");
-            /*sprintf(buf_tmp, "%d\n", a);
-            if (write(server_sockfd, buf_tmp, MAXLINE) <= 0)
-            {
-                perror("write error : ");
-                exit(0);
-            }
-            */
+            
         }
         
         usleep(400000);
@@ -343,17 +337,6 @@ int main(int argc, char *argv[]){
     char p3[] = "thread_3";
     
     char p4[] = "thread_4";
-    /*if ((server_sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-    {
-        perror("error :");
-        return 1;
-    }
-
-    server_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    serveraddr.sin_family = AF_INET;
-    serveraddr.sin_addr.s_addr = inet_addr("192.168.0.17");
-    serveraddr.sin_port = htons(8888);
-    */
     
     thr_id = pthread_create(&p_thread[0], NULL, fire_thd, (void *)p1);
     if(thr_id < 0){

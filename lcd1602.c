@@ -180,12 +180,7 @@ void * lcd()
 			prev_state=isFire;
 		}
 	
-		// else{
-		// 	printf("%d\n",lcd_val);
-		// 	sprintf(buf,"button %d ",lcd_val);
-		// 	lcd_string("Location : ", LCD_LINE_1);
-		// 	lcd_string(buf, LCD_LINE_2);
-		// }
+		
 		
 
 		sleep(1);
@@ -227,7 +222,7 @@ int main(int argc, char *argv[])
     if(connect(sock,(struct sockaddr*)&serv_addr,sizeof(serv_addr))==-1)
         error_handling("connect() error");
 	
-	printf("isthis work\n");
+	printf("connected to 23 pie\n");
 	pthread_create(&lcd_td,NULL,lcd,NULL);
 	
 	while(1){

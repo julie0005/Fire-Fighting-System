@@ -381,13 +381,10 @@ void *button_thd(void * arg){
 	if(!isFire) {printf("escape button_thd %d\n",((bt_arg*)arg)->button_val); pthread_mutex_unlock(&mutex_lock); break; }
 	bt_arg bi;
 	bi=*((bt_arg*)arg);
-	printf("is this work????????????????????????????????????????????  isFire : %d\n",isFire);
 	int gpio=19+bi.button_val;
 	
 	printf("gpio : %d\nthread : %d\nGPIORead(gpio) : %d\n",gpio,bi.button_val,GPIORead(gpio));
 	if(GPIORead(gpio) == 1){
-	    
-	    printf("is this work????????????????????????????2222222222222222222??\n");
 	    printf("button%d pushed\n",bi.button_val);
 	    //LCD print
 	    msg[1] = bi.button_val + '0';
@@ -418,7 +415,6 @@ void * soc1_thread(void * arg){
 	    //which button is pressed?
 	    if(isFire){
 		//buzzer on, led on
-		printf(" msg before writttttttttttttttttttttttttttttttttteeeeeeeeeeeeeee : %s\n", msg);
 		write(clnt,msg,sizeof(msg));
 		
 		printf("hi\n");
@@ -471,14 +467,14 @@ void * soc2_thread(void * arg){
 	    printf("Receive message from 22 : %s\n",msg);
 	    printf("change to integer : %d\n",atoi(msg));
 	    if(strlen(msg)>0 && atoi(msg)==1){
-		printf("isFire is changed\n");
+		printf("isFire is changed to 1, PREV_STATE=0\n");
 		prev_state=0;
 		isFire=1;
 		
 	    }	    
 	    else if(strlen(msg)>0 && atoi(msg)==0){
 		/* if end button is pressed, isFire=0*/
-		printf("is Fire is Changed to 0!!!!!!!!!! PREV_STATE=1\n");
+		printf("is Fire is Changed to 0, PREV_STATE=1\n");
 		prev_state=1;
 		isFire=0;
 	    }
